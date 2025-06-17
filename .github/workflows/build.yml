@@ -1,0 +1,52 @@
+name: CI/CD Pipeline for Minikube Deployment
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    # Step 1: Checkout the repository
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+
+    # Step 2: Install Minikube
+    - name: Install Minikube
+      run: |
+        curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+        sudo install minikube-linux-amd64 /usr/local/bin/minikube
+
+    # Step 3: Start Minikube with Docker driver (on GitHub runner environment)
+    - name: Start Minikube
+      run: |
+        minikube start --driver=docker
+
+    # Step 4: Wait for Minikube to be fully ready
+    - name: Wait for Minikube to be ready
+      run: |
+        minikube status
+        sleep 30  # Sleep for 30 seconds to ensure Minikube has fully started
+
+    # Step 5: Set up kubectl to use Minikube's config
+    - name: Set up kubectl for Minikube
+      run: |
+        mkdir -p $HOME/.kube
+        minikube kubectl -- get pods # This ensures that kubectl is working and the kubeconfig is set up
+
+    # Step 6: Apply Kubernetes Manifests for the Nginx application
+    - name: Apply Kubernetes Manifests
+      run: |
+        kubectl apply -f ./hello-world-nginx-deployment.yaml 
+
+    # Step 7: Verify the Deployment
+    - name: Verify Deployment
+      run: |
+        kubectl rollout status deployment/hello-world-nginx
+        kubectl get svc hello-world-nginx
